@@ -1,72 +1,79 @@
-import codecs
+from __future__ import print_function
 import os
-import collections
-from six.moves import cPickle
 import numpy as np
+from six.moves import cPickle as pickle
 
-class TextLoader():
-    def __init__(self, data_dir, batch_size, seq_length, encoding='utf-8'):
-        self.data_dir = data_dir
-        self.batch_size = batch_size
-        self.seq_length = seq_length
-        self.encoding = encoding
+class DataLoader():
+    def __init__(self, args):
+        self.args = args
 
-        input_file = os.path.join(data_dir, "input.txt")
-        vocab_file = os.path.join(data_dir, "vocab.pkl")
-        tensor_file = os.path.join(data_dir, "data.npy")
+        vocab_file = os.path.join(self.args.data_dir, "vocab.pkl")
+        train_file = os.path.join(args.data_dir, "train.npy")
+        val_file = os.path.join(args.data_dir, "val.npy")
+        test_file = os.path.join(args.data_dir, "test.npy")
 
-        if not (os.path.exists(vocab_file) and os.path.exists(tensor_file)):
-            print("reading text file")
-            self.preprocess(input_file, vocab_file, tensor_file)
-        else:
-            print("loading preprocessed files")
-            self.load_preprocessed(vocab_file, tensor_file)
-        self.create_batches()
-        self.reset_batch_pointer()
+        assert os.path.exists(args.data_dir), "data directory does not exist"
+        assert os.path.exists(vocab_file), "vocab file does not exist"
+        assert os.path.exists(train_file), "train file does not exist"
+        assert os.path.exists(val_file), "validation file does not exist"
+        assert os.path.exists(test_file), "test file does not exist"
 
-    def preprocess(self, input_file, vocab_file, tensor_file):
-        with codecs.open(input_file, "r", encoding=self.encoding) as f:
-            data = f.read()
-        counter = collections.Counter(data)
-        count_pairs = sorted(counter.items(), key=lambda x: -x[1])
-        self.chars, _ = zip(*count_pairs)
-        self.vocab_size = len(self.chars)
-        self.vocab = dict(zip(self.chars, range(len(self.chars))))
-        with open(vocab_file, 'wb') as f:
-            cPickle.dump(self.chars, f)
-        self.tensor = np.array(list(map(self.vocab.get, data)))
-        np.save(tensor_file, self.tensor)
-
-    def load_preprocessed(self, vocab_file, tensor_file):
         with open(vocab_file, 'rb') as f:
-            self.chars = cPickle.load(f)
-        self.vocab_size = len(self.chars)
-        self.vocab = dict(zip(self.chars, range(len(self.chars))))
-        self.tensor = np.load(tensor_file)
-        self.num_batches = int(self.tensor.size / (self.batch_size *
-                                                   self.seq_length))
+            self.vocab = pickle.load(f)
 
-    def create_batches(self):
-        self.num_batches = int(self.tensor.size / (self.batch_size *
-                                                   self.seq_length))
+        if args.vocab_size is None: # infer vocab size from data
+            args.vocab_size = len(self.vocab)
+        else:
+            assert args.vocab_size == len(self.vocab), \
+                "specified vocab size ({}) is not the same as data ({}), remove flag to infer the size" \
+                    .format(args.vocab_size, len(self.vocab))
 
-        # When the data (tesor) is too small, let's give them a better error message
-        if self.num_batches==0:
-            assert False, "Not enough data. Make seq_length and batch_size small."
+        sets = {}
 
-        self.tensor = self.tensor[:self.num_batches * self.batch_size * self.seq_length]
-        xdata = self.tensor
-        ydata = np.copy(self.tensor)
-        ydata[:-1] = xdata[1:]
-        ydata[-1] = xdata[0]
-        self.x_batches = np.split(xdata.reshape(self.batch_size, -1), self.num_batches, 1)
-        self.y_batches = np.split(ydata.reshape(self.batch_size, -1), self.num_batches, 1)
+        for label, file in [("train", train_file), ("validation", val_file), ("test", test_file)]:
+            data_tensor = np.load(file)
+            num_batches = int(data_tensor.size / (args.batch_size * args.seq_length))
 
+            assert num_batches != 0, \
+                "not enough {} data for batch parameters. reduce seq_length or batch_size or preprocess with different splits" \
+                .format(label)
 
-    def next_batch(self):
-        x, y = self.x_batches[self.pointer], self.y_batches[self.pointer]
-        self.pointer += 1
-        return x, y
+            data_tensor = data_tensor[:num_batches * args.batch_size * args.seq_length]
 
-    def reset_batch_pointer(self):
-        self.pointer = 0
+            x = data_tensor
+            y = np.empty(data_tensor.shape, dtype=data_tensor.dtype)
+            y[:-1] = x[1:]
+            y[-1] = y[0]
+
+            x_batches = np.split(x.reshape(args.batch_size, -1), num_batches, 1)
+            y_batches = np.split(y.reshape(args.batch_size, -1), num_batches, 1)
+
+            sets[label] = BatchIterator(x_batches, y_batches)
+
+            if args.verbose:
+                print("{} data loaded".format(label))
+                print("number of batches: {}".format(num_batches))
+
+        self.train = sets["train"]
+        self.val = sets["validation"]
+        self.test = sets["test"]
+
+class BatchIterator():
+    def __init__(self, x_batches, y_batches):
+        self.x_batches = x_batches
+        self.y_batches = y_batches
+        self.num_batches = len(x_batches)
+
+    def __iter__(self):
+        self.counter = 0
+        return self
+
+    def __next__(self):
+        if self.counter == self.num_batches:
+            raise StopIteration
+        else:
+            x, y = self.x_batches[self.counter], self.y_batches[self.counter] 
+            self.counter += 1
+            return x, y
+
+    next = __next__ # python 2

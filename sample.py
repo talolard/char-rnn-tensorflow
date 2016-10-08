@@ -1,44 +1,57 @@
 from __future__ import print_function
 import numpy as np
 import tensorflow as tf
-
 import argparse
-import time
 import os
-from six.moves import cPickle
-
-from utils import TextLoader
-from model import Model
-
+from six.moves import cPickle as pickle
 from six import text_type
 
-def main():
-    parser = argparse.ArgumentParser()
-    parser.add_argument('--save_dir', type=str, default='save',
-                       help='model directory to store checkpointed models')
-    parser.add_argument('-n', type=int, default=500,
-                       help='number of characters to sample')
-    parser.add_argument('--prime', type=text_type, default=u' ',
-                       help='prime text')
-    parser.add_argument('--sample', type=int, default=1,
-                       help='0 to use max at each timestep, 1 to sample at each timestep, 2 to sample on spaces')
+from model import Model
 
-    args = parser.parse_args()
-    sample(args)
+parser = argparse.ArgumentParser()
+parser.add_argument('--init_from', type=str,
+                    default='checkpoints', help="checkpoint file or directory to intialize from, if directory the most recent checkpoint is used, directory must have vocab and config files")
+parser.add_argument('-n', type=int, default=500,
+                   help="length of desired sample")
+parser.add_argument('--prime', type=text_type, default=u'',
+                   help="primer for generation")
+parser.add_argument('--temperature', type=float, default=1,
+                   help="sampling temperature")
+args = parser.parse_args()
 
-def sample(args):
-    with open(os.path.join(args.save_dir, 'config.pkl'), 'rb') as f:
-        saved_args = cPickle.load(f)
-    with open(os.path.join(args.save_dir, 'chars_vocab.pkl'), 'rb') as f:
-        chars, vocab = cPickle.load(f)
-    model = Model(saved_args, True)
-    with tf.Session() as sess:
-        tf.initialize_all_variables().run()
-        saver = tf.train.Saver(tf.all_variables())
-        ckpt = tf.train.get_checkpoint_state(args.save_dir)
-        if ckpt and ckpt.model_checkpoint_path:
-            saver.restore(sess, ckpt.model_checkpoint_path)
-            print(model.sample(sess, chars, vocab, args.n, args.prime, args.sample))
+assert os.path.exists(args.init_from),"{} is not a file or directory".format(args.init_from)
 
-if __name__ == '__main__':
-    main()
+if os.path.isdir(args.init_from):
+    parent_dir = args.init_from
+else:
+    parent_dir = os.path.dirname(args.init_from)
+
+config_file = os.path.join(parent_dir, "config.pkl")
+vocab_file = os.path.join(parent_dir, "vocab.pkl")
+
+assert os.path.isfile(config_file), "config.pkl does not exist in directory {}".format(parent_dir)
+assert os.path.isfile(vocab_file), "vocab.pkl does not exist in directory {}".format(parent_dir)
+
+with open(config_file, 'rb') as f:
+    saved_args = pickle.load(f)
+
+with open(vocab_file, 'rb') as f:
+    saved_vocab = pickle.load(f)
+
+if os.path.isdir(args.init_from):
+    checkpoint = tf.train.latest_checkpoint(parent_dir)
+    assert checkpoint, "no checkpoint in directory {}".format(init_from)
+else:
+    checkpoint = args.init_from
+
+model = Model(saved_args, sample=True)
+
+with tf.Session() as sess:
+    tf.initialize_all_variables().run()
+    saver = tf.train.Saver(tf.all_variables())
+    if args.init_from is not None:
+        try:
+            saver.restore(sess, checkpoint)
+        except ValueError:
+            print("{} is not a valid checkpoint".format(checkpoint))
+    print(model.sample(sess, saved_vocab, args.n, args.prime, args.temperature))
