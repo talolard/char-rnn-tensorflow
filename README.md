@@ -1,7 +1,7 @@
 # char-rnn-tensorflow
 Multi-layer Recurrent Neural Networks (LSTM, RNN) for character-level language models in Python using Tensorflow.
 
-Forked from sherjilozair [char-rnn-tensorflow](https://github.com/sherjilozair/char-rnn-tensorflow)
+Forked from sherjilozair [char-rnn-tensorflow](https://github.com/sherjilozair/char-rnn-tensorflow).
 
 - Added separate preprocessing code
 - Added validation and test splitting
