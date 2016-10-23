@@ -112,16 +112,17 @@ with tf.Session() as sess:
 
     for e in range(args.num_epochs):
         lr = args.learning_rate * (args.decay_factor ** e)
-        state = sess.run(model.start_state)
+        state = sess.run(model.zero_state)
 
         for b, (x, y) in enumerate(loader.train):
             global_step = e * loader.train.num_batches + b
             start = time.time()
-            feed = {model.input: x, 
-                    model.target: y, 
-                    model.start_state: state, 
+            feed = {model.input: x,
+                    model.target: y,
                     model.dropout: args.dropout,
                     model.lr: lr}
+            state_feed = {pl: s for pl, s in zip(sum(model.start_state, ()), sum(state, ()))}
+            feed.update(state_feed)
             train_loss, state, _ = sess.run([model.cost, model.end_state, model.train_op], feed)
             end = time.time()
             print("{}/{} (epoch {}), train_loss = {:.3f}, time/batch = {:.3f}" \
@@ -132,13 +133,14 @@ with tf.Session() as sess:
             if global_step % args.save_every == 0 \
                 or (e == args.num_epochs - 1 and b == loader.train.num_batches - 1):
                 all_loss = 0
-                val_state = sess.run(model.start_state)
+                val_state = sess.run(model.zero_state)
                 start = time.time()
 
                 for b, (x, y) in enumerate(loader.val):
                     feed = {model.input: x,
-                            model.target: y,
-                            model.start_state: state}
+                            model.target: y}
+                    state_feed = {pl: s for pl, s in zip(sum(model.start_state, ()), sum(val_state, ()))}
+                    feed.update(state_feed)
                     batch_loss, val_state = sess.run([model.cost, model.end_state], feed)
                     all_loss += batch_loss
 

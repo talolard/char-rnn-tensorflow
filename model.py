@@ -22,7 +22,10 @@ class Model():
 
         self.input = tf.placeholder(tf.int32, [args.batch_size, args.seq_length])
         self.target = tf.placeholder(tf.int32, [args.batch_size, args.seq_length])
-        self.start_state = self.core.zero_state(args.batch_size, tf.float32)
+        self.zero_state = self.core.zero_state(args.batch_size, tf.float32)
+        self.start_state = [(tf.placeholder(tf.float32, [args.batch_size, args.hidden_size]), \
+                            tf.placeholder(tf.float32, [args.batch_size, args.hidden_size])) \
+                            for _ in range(args.num_layers)]
         
         with tf.variable_scope('model'):
             softmax_w = tf.get_variable('softmax_w', [args.hidden_size, args.vocab_size])
@@ -62,7 +65,7 @@ class Model():
         self.train_op = optimizer.apply_gradients(zip(grads, trainables))
 
     def sample(self, sess, vocab, num=128, prime=None, temperature=0.0):
-        state = sess.run(self.start_state)
+        state = sess.run(self.zero_state)
 
         idx_to_word = {v: k for k, v in vocab.items()}
 
@@ -70,7 +73,9 @@ class Model():
             for char in prime[:-1]:
                 x = np.empty((1, 1))
                 x[0, 0] = vocab[char]
-                feed = {self.input: x, self.start_state:state}
+                feed = {self.input: x}
+                state_feed = {pl: s for pl, s in zip(sum(self.start_state, ()), sum(state, ()))}
+                feed.update(state_feed)
                 state = sess.run([self.end_state], feed)
 
         if prime:
@@ -83,7 +88,9 @@ class Model():
         for n in range(num):
             x = np.zeros((1, 1))
             x[0, 0] = vocab[char]
-            feed = {self.input: x, self.start_state:state}
+            feed = {self.input: x}
+            state_feed = {pl: s for pl, s in zip(sum(self.start_state, ()), sum(state, ()))}
+            feed.update(state_feed)
             logits, state = sess.run([self.logits, self.end_state], feed)
             logits = logits[0]
 
