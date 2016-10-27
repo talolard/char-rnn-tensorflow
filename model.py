@@ -32,8 +32,8 @@ class Model():
             softmax_b = tf.get_variable('softmax_b', [args.vocab_size])
             embedding = tf.get_variable('embedding', [args.vocab_size, args.hidden_size])
 
-            inputs = tf.split(1, args.seq_length, tf.nn.embedding_lookup(embedding, self.input))
-            inputs = [tf.squeeze(input_, [1]) for input_ in inputs]
+            embedded = tf.nn.embedding_lookup(embedding, self.input)
+            inputs = tf.unpack(embedded, axis=1)
 
             state = self.start_state
             outputs = []
