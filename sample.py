@@ -16,7 +16,7 @@ def sample(model, sess, vocab, length, temperature=1.0, prime=None):
     idx_to_word = {v: k for k, v in vocab.items()}
 
     if prime:
-        for char in args.prime[:-1]:
+        for char in prime[:-1]:
             x = np.empty((1, 1))
             x[0, 0] = vocab[char]
             feed = {model.input: x}

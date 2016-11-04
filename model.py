@@ -33,7 +33,7 @@ class Model():
 
             state = self.start_state
             outputs = []
-            states = []
+            self.states = []
 
             for i, inp in enumerate(inputs):
                 if i > 0:
