@@ -3,7 +3,9 @@ import os
 import numpy as np
 from six.moves import cPickle as pickle
 
+
 class DataLoader():
+
     def __init__(self, args):
         self.args = args
 
@@ -58,7 +60,9 @@ class DataLoader():
         self.val = sets["validation"]
         self.test = sets["test"]
 
+
 class BatchIterator():
+
     def __init__(self, x_batches, y_batches):
         self.x_batches = x_batches
         self.y_batches = y_batches
