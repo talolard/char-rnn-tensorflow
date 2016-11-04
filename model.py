@@ -6,7 +6,9 @@ from tensorflow.python.ops import rnn_cell
 from tensorflow.python.ops import seq2seq
 from tensorflow.python.ops import variable_scope
 
+
 class Model():
+
     def __init__(self, args):
         layer_type = rnn_cell.BasicLSTMCell
         layer = layer_type(args.hidden_size, state_is_tuple=True)

@@ -9,6 +9,7 @@ from six.moves import cPickle as pickle
 from utils import DataLoader
 from model import Model
 
+
 def train(args):
     if args.verbose:
         print(vars(args))
