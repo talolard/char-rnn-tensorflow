@@ -118,7 +118,7 @@ def train(args):
                     saver.save(sess, checkpoint_path)
                     print("model saved to {}".format(checkpoint_path))
 
-def get_train_parser():
+def get_train_args():
     parser = argparse.ArgumentParser()
     parser.add_argument('--data_dir', type=str,
                         default='species', help="directory with processed data")
@@ -152,9 +152,9 @@ def get_train_parser():
                         default=0.9, help="dropout keep probability applied to input between lstm layers")
     parser.add_argument('--verbose', action='store_true',
                         help="verbose printing")
-    return parser
+    args = parser.parse_args()
+    return args
 
 if __name__ == '__main__':
-    parser = get_train_parser()
-    args = parser.parse_args()
+    args = get_train_args()
     train(args)
