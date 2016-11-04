@@ -7,15 +7,9 @@ from tensorflow.python.ops import seq2seq
 from tensorflow.python.ops import variable_scope
 
 class Model():
-    def __init__(self, args, sample=False):
-        self.args = args
-
-        if sample:
-            args.batch_size = 1
-            args.seq_length = 1
-
+    def __init__(self, args):
         layer_type = rnn_cell.BasicLSTMCell
-        layer = layer_type(self.args.hidden_size, state_is_tuple=True)
+        layer = layer_type(args.hidden_size, state_is_tuple=True)
         self.dropout = tf.placeholder_with_default(tf.constant(1, dtype=tf.float32), None)
         wrapped = tf.nn.rnn_cell.DropoutWrapper(layer, input_keep_prob=self.dropout)
         self.core = rnn_cell.MultiRNNCell([wrapped] * args.num_layers, state_is_tuple=True)
@@ -63,48 +57,3 @@ class Model():
         grads, _ = tf.clip_by_global_norm(tf.gradients(self.cost, trainables), args.grad_clip)
         optimizer = tf.train.AdamOptimizer(self.lr)
         self.train_op = optimizer.apply_gradients(zip(grads, trainables))
-
-    def sample(self, sess, vocab, num=128, prime=None, temperature=0.0):
-        state = sess.run(self.zero_state)
-
-        idx_to_word = {v: k for k, v in vocab.items()}
-
-        if prime:
-            for char in prime[:-1]:
-                x = np.empty((1, 1))
-                x[0, 0] = vocab[char]
-                feed = {self.input: x}
-                state_feed = {pl: s for pl, s in zip(sum(self.start_state, ()), sum(state, ()))}
-                feed.update(state_feed)
-                state = sess.run([self.end_state], feed)
-
-        if prime:
-            ret = prime
-        else:
-            ret = str(random.choice(list(vocab.keys())))
-
-        char = ret[-1]
-
-        for n in range(num):
-            x = np.zeros((1, 1))
-            x[0, 0] = vocab[char]
-            feed = {self.input: x}
-            state_feed = {pl: s for pl, s in zip(sum(self.start_state, ()), sum(state, ()))}
-            feed.update(state_feed)
-            logits, state = sess.run([self.logits, self.end_state], feed)
-            logits = logits[0]
-
-            if temperature == 0.0:
-                sample = np.argmax(logits)
-            else:
-                scale = logits / temperature
-                exp = np.exp(scale - np.max(scale))
-                soft = exp / np.sum(exp)
-
-                sample = np.random.choice(len(soft), p=soft)
-
-            pred = idx_to_word[sample]
-            ret += pred
-            char = pred
-
-        return ret
