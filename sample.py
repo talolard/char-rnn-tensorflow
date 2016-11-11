@@ -22,7 +22,7 @@ def sample(model, sess, vocab, length, temperature=1.0, prime=None):
             feed = {model.input: x}
             state_feed = {pl: s for pl, s in zip(sum(model.start_state, ()), sum(state, ()))}
             feed.update(state_feed)
-            state = sess.run([model.end_state], feed)
+            state = sess.run([model.end_state], feed)[0]
 
     if prime:
         ret = prime
@@ -32,7 +32,7 @@ def sample(model, sess, vocab, length, temperature=1.0, prime=None):
     char = ret[-1]
 
     for _ in range(length):
-        x = np.zeros((1, 1))
+        x = np.empty((1, 1))
         x[0, 0] = vocab[char]
         feed = {model.input: x}
         state_feed = {pl: s for pl, s in zip(sum(model.start_state, ()), sum(state, ()))}
