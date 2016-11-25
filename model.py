@@ -35,6 +35,8 @@ class Model():
             outputs = []
             states = []
 
+
+
             for i, inp in enumerate(inputs):
                 if i > 0:
                     variable_scope.get_variable_scope().reuse_variables()
