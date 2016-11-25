@@ -27,7 +27,7 @@ def sample(model, sess, vocab, length, temperature=1.0, prime=None):
     if prime:
         ret = prime
     else:
-        ret = str(random.choice(list(vocab.keys())))
+        ret = str(random.choice(list(vocab.keys())),errors='ignore')
 
     char = ret[-1]
 
