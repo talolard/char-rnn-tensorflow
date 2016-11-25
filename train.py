@@ -1,10 +1,10 @@
 from __future__ import print_function
-import numpy as np
 import tensorflow as tf
 import argparse
 import os
 import time
 from six.moves import cPickle as pickle
+import utils
 
 from utils import DataLoader
 from model import Model
@@ -79,26 +79,38 @@ def train(args):
 
         for e in range(args.num_epochs):
             lr = args.learning_rate * (args.decay_factor ** e)
-            state = sess.run(model.zero_state)
+            init_states_cell_list = utils.get_states_list(model.initial_state_cell, False)
+            init_states_cell_dict = utils.get_states_dict(model.initial_state_cell, False)
+            init_states_attn_list = utils.get_states_list(model.initial_state_attn, False)
+            init_states_attn_dict = utils.get_states_dict(model.initial_state_attn, False)
 
             for b, (x, y) in enumerate(loader.train):
+                final_states_list = utils.get_states_list(model.end_state, False)
                 global_step = e * loader.train.num_batches + b
                 start = time.time()
                 feed = {model.input: x,
                         model.target: y,
                         model.dropout: args.dropout,
-                        model.lr: lr}
-                state_feed = {pl: s for pl, s in zip(sum(model.start_state, ()), sum(state, ()))}
-                feed.update(state_feed)
-                train_loss, state, _ = sess.run([model.cost, model.end_state, model.train_op], feed)
+                        model.lr: lr,
+                        }
+
+                feed.update(init_states_cell_dict)
+                feed.update(init_states_attn_dict)
+
+                train_loss,_,cell_states,attn_states= sess.run( [model.cost, model.train_op] + final_states_list + init_states_attn_list, feed)
+                init_states_cell_dict =dict(zip(init_states_cell_list, cell_states))
+                init_states_attn_dict= dict(zip(init_states_attn_list, attn_states))
+                print(len(cell_states))
+
+
+
                 end = time.time()
                 print("{}/{} (epoch {}), train_loss = {:.3f}, time/batch = {:.3f}" \
                     .format(global_step,
                             args.num_epochs * loader.train.num_batches,
                             e, train_loss, end - start))
 
-                if global_step % args.save_every == 0 \
-                    or (e == args.num_epochs - 1 and b == loader.train.num_batches - 1):
+                if  False: #global_step % args.save_every == 1 or (e == args.num_epochs - 1 and b == loader.train.num_batches - 1):
                     all_loss = 0
                     val_state = sess.run(model.zero_state)
                     start = time.time()

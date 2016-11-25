@@ -81,3 +81,34 @@ class BatchIterator():
             return x, y
 
     next = __next__ # python 2
+def get_states_list(states, state_is_tuple):
+    """
+    given a 'states' variable from a tensorflow model,
+    return a flattened list of states
+    """
+    if state_is_tuple:
+        states_list = [] # flattened list of all tensors in states
+        for layer in states:
+            for state in layer:
+                states_list.append(state)
+    else:
+        states_list = [states]
+
+    return states_list
+
+
+def get_states_dict(states, state_is_tuple):
+    """
+    given a 'states' variable from a tensorflow model,
+    return a dict of { tensor : evaluated value }
+    """
+    if state_is_tuple:
+        states_dict = {} # dict of { tensor : value }
+        for layer in states:
+            for state in layer:
+                states_dict[state] = state.eval()
+
+    else:
+        states_dict = {states : states.eval()}
+
+    return states_dict

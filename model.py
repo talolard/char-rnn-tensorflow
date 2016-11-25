@@ -11,21 +11,24 @@ class Model():
 
     def __init__(self, args):
         layer_type = rnn_cell.BasicLSTMCell
-        layer = layer_type(args.hidden_size, state_is_tuple=True)
+        layer = layer_type(args.hidden_size, state_is_tuple=False)
         self.dropout = tf.placeholder_with_default(tf.constant(1, dtype=tf.float32), None)
         wrapped = tf.nn.rnn_cell.DropoutWrapper(layer, input_keep_prob=self.dropout)
-        self.core = rnn_cell.MultiRNNCell([wrapped] * args.num_layers, state_is_tuple=True)
+        self.core = rnn_cell.MultiRNNCell([wrapped] * args.num_layers, state_is_tuple=False)
 
         self.input = tf.placeholder(tf.int32, [args.batch_size, args.seq_length])
         self.target = tf.placeholder(tf.int32, [args.batch_size, args.seq_length])
-        self.zero_state = self.core.zero_state(args.batch_size, tf.float32)
-        self.initial_state_attn = array_ops.zeros([args.batch_size,args.hidden_size])
-        self.zero_state_attn = array_ops.zeros([args.batch_size,args.seq_length,args.hidden_size])
-        self.start_state = [(tf.placeholder(tf.float32, [args.batch_size, args.hidden_size]), \
-                            tf.placeholder(tf.float32, [args.batch_size, args.hidden_size])) \
-                            for _ in range(args.num_layers)]
-        
+
+        self.initial_state_cell = self.core.zero_state(args.batch_size, tf.float32)
+        self.initial_state_attn = array_ops.zeros([args.batch_size, args.seq_length, args.hidden_size])
+
+        self.cell_state_placeholder =tf.placeholder(dtype=tf.float32,name="cell_state",shape=[args.batch_size,2*args.hidden_size])
+        self.attn_state_placeholder = tf.placeholder(dtype=tf.float32, name="attn_state",shape=[args.batch_size, args.seq_length, args.hidden_size])
+
+
         with tf.variable_scope('model'):
+            cell_state = self.cell_state_placeholder
+            attn_state = self.attn_state_placeholder
             softmax_w = tf.get_variable('softmax_w', [args.hidden_size, args.vocab_size])
             softmax_b = tf.get_variable('softmax_b', [args.vocab_size])
             embedding = tf.get_variable('embedding', [args.vocab_size, args.hidden_size])
@@ -33,24 +36,17 @@ class Model():
             embedded = tf.nn.embedding_lookup(embedding, self.input)
             inputs = tf.unpack(embedded, axis=1)
 
-            state = self.start_state
             outputs = []
             states = []
 
-            for i, inp in enumerate(inputs):
-                if i > 0:
-                    variable_scope.get_variable_scope().reuse_variables()
 
-                output, state = self.core(inp, state)
-                states.append(state)
-                outputs.append(output)
+            outputs, state = seq2seq.attention_decoder(decoder_inputs=inputs,
+                                                        initial_state=self.initial_state_cell,
+                                                        attention_states=self.initial_state_attn,
+                                                        cell=self.core,
+                                                       initial_state_attention=True
 
-        outputs, state = seq2seq.attention_decoder(decoder_inputs=inputs,
-                                                    initial_state=self.zero_state,
-                                                    attention_states=self.zero_state_attn,
-                                                    cell=self.core
-
-                                                    )
+                                                        )
 
         self.end_state = state
         output = tf.reshape(tf.concat(1, outputs), [-1, args.hidden_size])
