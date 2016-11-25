@@ -5,6 +5,7 @@ import tensorflow as tf
 from tensorflow.python.ops import rnn_cell
 from tensorflow.python.ops import seq2seq
 from tensorflow.python.ops import variable_scope
+from tensorflow.python.ops.seq2seq import attention_decoder
 
 
 class Model():
@@ -43,7 +44,15 @@ class Model():
                 states.append(state)
                 outputs.append(output)
 
-        self.end_state = states[-1]
+            attn_states = tf.concat(1, [tf.reshape(e, [-1, 1, self.core.output_size])
+                                        for e in outputs])
+        outputs, state =attention_decoder(
+            decoder_inputs=inputs,
+            initial_state=states[-1],
+            attention_states=attn_states,
+            cell=self.core,
+        )
+        self.end_state = state
         output = tf.reshape(tf.concat(1, outputs), [-1, args.hidden_size])
 
         self.logits = tf.matmul(output, softmax_w) + softmax_b

@@ -10,7 +10,7 @@ from six import text_type
 from model import Model
 
 
-def sample(model, sess, vocab, length, temperature=1.0, prime=None):
+def sample(model, sess, vocab, length, temperature=1.0, prime=None,output=None):
     state = sess.run(model.zero_state)
 
     idx_to_word = {v: k for k, v in vocab.items()}
@@ -52,6 +52,11 @@ def sample(model, sess, vocab, length, temperature=1.0, prime=None):
         pred = idx_to_word[sample]
         ret += pred
         char = pred
+
+    if output:
+        f=open(output,'w',encoding='utf-8')
+        f.write(ret)
+        f.close()
 
     return ret
 
