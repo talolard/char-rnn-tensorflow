@@ -2,7 +2,7 @@ from __future__ import division
 import random
 import numpy as np
 import tensorflow as tf
-from tensorflow.python.ops import rnn_cell, array_ops
+from tensorflow.python.ops import rnn_cell
 from tensorflow.python.ops import seq2seq
 from tensorflow.python.ops import variable_scope
 
@@ -19,8 +19,6 @@ class Model():
         self.input = tf.placeholder(tf.int32, [args.batch_size, args.seq_length])
         self.target = tf.placeholder(tf.int32, [args.batch_size, args.seq_length])
         self.zero_state = self.core.zero_state(args.batch_size, tf.float32)
-        self.initial_state_attn = array_ops.zeros([args.batch_size,args.hidden_size])
-        self.zero_state_attn = array_ops.zeros([args.batch_size,args.seq_length,args.hidden_size])
         self.start_state = [(tf.placeholder(tf.float32, [args.batch_size, args.hidden_size]), \
                             tf.placeholder(tf.float32, [args.batch_size, args.hidden_size])) \
                             for _ in range(args.num_layers)]
@@ -45,14 +43,7 @@ class Model():
                 states.append(state)
                 outputs.append(output)
 
-        outputs, state = seq2seq.attention_decoder(decoder_inputs=inputs,
-                                                    initial_state=self.zero_state,
-                                                    attention_states=self.zero_state_attn,
-                                                    cell=self.core
-
-                                                    )
-
-        self.end_state = state
+        self.end_state = states[-1]
         output = tf.reshape(tf.concat(1, outputs), [-1, args.hidden_size])
 
         self.logits = tf.matmul(output, softmax_w) + softmax_b
